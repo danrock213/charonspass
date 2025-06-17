@@ -1,6 +1,4 @@
 import { currentUser } from '@clerk/nextjs/server';
-import { getTributes } from '@/lib/data/tributes';
-
 import DashboardShell from './DashboardShell';
 
 export default async function DashboardPage() {
@@ -14,9 +12,9 @@ export default async function DashboardPage() {
     );
   }
 
-  // Fetch tributes
-  const allTributes = getTributes();
-  const userTributes = allTributes.filter(t => t.createdBy === user.id);
+  // For now, no server-side tributes fetching.
+  // The tributes can be fetched client-side via useTributes hook inside DashboardShell or another child component.
+  const userTributes = []; // <-- Placeholder empty array
 
   // TODO: Replace these with your real data fetching logic
   const checklist = [
@@ -47,7 +45,7 @@ export default async function DashboardPage() {
   return (
     <DashboardShell
       firstName={user.firstName}
-      tributes={userTributes}
+      tributes={userTributes}  // pass empty for now
       checklist={checklist}
       vendors={vendors}
       allVendorTypes={allVendorTypes}

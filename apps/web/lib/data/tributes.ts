@@ -1,91 +1,88 @@
 import { Tribute } from '@/types/tribute';
 
-const STORAGE_KEY = 'tributes';
+const API_BASE_PATH = '/api/tributes';
 
-// Get all tributes from localStorage or fallback to default mock data
-export const getTributes = (): Tribute[] => {
-  if (typeof window === 'undefined') return []; // Prevent SSR issues
-
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored) as Tribute[];
-    } catch (e) {
-      console.error('Failed to parse tributes from localStorage', e);
-    }
-  }
-  return getMockTributes();
-};
-
-// Get a single tribute by ID
-export const getTributeById = (id: string): Tribute | undefined => {
-  return getTributes().find((t) => t.id === id);
-};
-
-// Save or update a tribute in localStorage
-export const saveTribute = (tribute: Tribute) => {
-  const tributes = getTributes();
-  const index = tributes.findIndex((t) => t.id === tribute.id);
-
-  if (index !== -1) {
-    // Preserve existing createdBy if missing on update
-    if (!tribute.createdBy && tributes[index].createdBy) {
-      tribute.createdBy = tributes[index].createdBy;
-    }
-    tributes[index] = { ...tributes[index], ...tribute }; // update existing, merging to preserve fields
+// Helper to get full URL for fetch in server or client
+function getApiUrl(path = '') {
+  if (typeof window === 'undefined') {
+    // Server side: build full URL from env or default localhost
+    const origin = process.env.NEXT_PUBLIC_APP_ORIGIN || 'http://localhost:3000';
+    return origin + API_BASE_PATH + path;
   } else {
-    // For new tribute, createdBy should already be set by caller
-    tributes.push(tribute); // add new
+    // Client side: relative path works fine
+    return API_BASE_PATH + path;
   }
+}
+
+export const getTributes = async (): Promise<Tribute[]> => {
+  try {
+    const res = await fetch(getApiUrl(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch tributes');
+    const data = await res.json();
+    return Array.isArray(data) ? data : getMockTributes();
+  } catch (e) {
+    console.error('Error fetching tributes:', e);
+    return getMockTributes();
+  }
+};
+
+export const getTributeById = async (id: string): Promise<Tribute | undefined> => {
+  try {
+    const res = await fetch(getApiUrl(`/${id}`), { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch tribute');
+    return await res.json();
+  } catch (e) {
+    console.error(`Error fetching tribute ${id}:`, e);
+    return undefined;
+  }
+};
+
+export const saveTribute = async (tribute: Tribute): Promise<Tribute | undefined> => {
+  const method = tribute.id ? 'PUT' : 'POST';
+  const endpoint = tribute.id ? getApiUrl(`/${tribute.id}`) : getApiUrl();
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tributes));
+    const res = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tribute),
+    });
+
+    if (!res.ok) throw new Error(`Failed to ${method === 'POST' ? 'create' : 'update'} tribute`);
+    return await res.json();
   } catch (e) {
-    console.error('Failed to save tributes to localStorage', e);
+    console.error(`Error saving tribute:`, e);
+    return undefined;
   }
 };
 
-// Add or update RSVP for a tribute
-export const addRSVPToTribute = (
+export const addRSVPToTribute = async (
   tributeId: string,
   name: string,
   attending: boolean
-) => {
-  const tributes = getTributes();
-  const tributeIndex = tributes.findIndex((t) => t.id === tributeId);
-  if (tributeIndex === -1) return;
-
-  const tribute = tributes[tributeIndex];
+): Promise<Tribute | undefined> => {
+  const tribute = await getTributeById(tributeId);
+  if (!tribute) return;
 
   if (!tribute.funeralDetails) tribute.funeralDetails = {};
   if (!tribute.funeralDetails.rsvpList) tribute.funeralDetails.rsvpList = [];
 
-  // Avoid duplicate RSVP by name
-  const existingIndex = tribute.funeralDetails.rsvpList.findIndex(
-    (rsvp) => rsvp.name === name
-  );
   const newRSVP = {
     name,
     attending,
     timestamp: new Date().toISOString(),
   };
 
-  if (existingIndex !== -1) {
-    tribute.funeralDetails.rsvpList[existingIndex] = newRSVP;
+  const index = tribute.funeralDetails.rsvpList.findIndex((r) => r.name === name);
+  if (index !== -1) {
+    tribute.funeralDetails.rsvpList[index] = newRSVP;
   } else {
     tribute.funeralDetails.rsvpList.push(newRSVP);
   }
 
-  tributes[tributeIndex] = tribute;
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tributes));
-  } catch (e) {
-    console.error('Failed to save tributes to localStorage', e);
-  }
+  return await saveTribute(tribute);
 };
 
-// Default hardcoded mock tributes
 export const getMockTributes = (): Tribute[] => [
   {
     id: '1',

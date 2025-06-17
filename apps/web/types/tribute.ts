@@ -4,21 +4,24 @@ import { Tribute, RSVP } from '@/types/tribute';
 
 const STORAGE_KEY = 'tributes';
 
+// Utility to safely parse JSON
+function safeParse<T>(json: string | null, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    console.error('Failed to parse JSON');
+    return fallback;
+  }
+}
+
 // Get all tributes from localStorage or fallback to default mock data
 export const getTributes = (): Tribute[] => {
-  if (typeof window === 'undefined') return []; // Prevent SSR issues
+  if (typeof window === 'undefined') return []; // SSR guard
 
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as Tribute[];
-      return Array.isArray(parsed) ? parsed : getMockTributes();
-    } catch {
-      console.error('Failed to parse tributes from localStorage');
-      return getMockTributes();
-    }
-  }
-  return getMockTributes();
+  const parsed = safeParse<Tribute[]>(stored, getMockTributes());
+  return Array.isArray(parsed) ? parsed : getMockTributes();
 };
 
 // Get a single tribute by ID
@@ -27,8 +30,9 @@ export const getTributeById = (id: string): Tribute | undefined => {
 };
 
 // Save or update a tribute in localStorage
-// If adding new tribute, make sure to set createdBy property before calling this function
-export const saveTribute = (tribute: Tribute) => {
+export const saveTribute = (tribute: Tribute): void => {
+  if (typeof window === 'undefined') return; // SSR guard
+
   const tributes = getTributes();
   const index = tributes.findIndex((t) => t.id === tribute.id);
 
@@ -37,22 +41,23 @@ export const saveTribute = (tribute: Tribute) => {
     if (!tribute.createdBy && tributes[index].createdBy) {
       tribute.createdBy = tributes[index].createdBy;
     }
-    tributes[index] = tribute; // update existing
+    tributes[index] = tribute;
   } else {
-    // For new tribute, createdBy should already be set by caller
-    tributes.push(tribute); // add new
+    tributes.push(tribute);
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tributes));
 };
 
 // Add or update RSVP for a tribute
-export const addRSVPToTribute = (tributeId: string, name: string, attending: boolean) => {
+export const addRSVPToTribute = (tributeId: string, name: string, attending: boolean): void => {
+  if (typeof window === 'undefined') return; // SSR guard
+
   const tributes = getTributes();
   const tributeIndex = tributes.findIndex((t) => t.id === tributeId);
   if (tributeIndex === -1) return;
 
-  const tribute = tributes[tributeIndex];
+  const tribute = { ...tributes[tributeIndex] };
 
   if (!tribute.funeralDetails) tribute.funeralDetails = {};
   if (!tribute.funeralDetails.rsvpList) tribute.funeralDetails.rsvpList = [];
@@ -83,8 +88,7 @@ export const getMockTributes = (): Tribute[] => [
     birthDate: '1950-01-01',
     deathDate: '2024-05-12',
     bio: 'A kind and loving person remembered forever.',
-    // photoUrl is deprecated in favor of photoBase64, you can remove or keep for backward compatibility
-    photoBase64: '', // blank or default base64 image string here
+    photoBase64: '', // keep or replace with default base64 image string
     createdBy: 'mock-user-1',
   },
   {

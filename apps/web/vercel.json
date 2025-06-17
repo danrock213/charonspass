@@ -1,12 +1,10 @@
 {
-  "rewrites": [
-    {
-      "source": "/docs",
-      "destination": "https://novel.mintlify.dev/docs"
-    },
-    {
-      "source": "/docs/:match*",
-      "destination": "https://novel.mintlify.dev/docs/:match*"
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".next",
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
     }
-  ]
+  }
 }

@@ -1,51 +1,38 @@
 'use client';
 
 import Link from 'next/link';
-import { getTributes } from '@/lib/data/tributes';
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Tribute } from '@/types/tribute';
 import { useUser } from '@clerk/nextjs';
-
-function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T {
-  let timeout: NodeJS.Timeout;
-  return function (this: any, ...args: any[]) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => fn.apply(this, args), delay);
-  } as T;
-}
+import { useTributes } from '@/hooks/useTributes';
 
 export default function TributeListPage() {
-  const [tributes, setTributes] = useState<Tribute[]>([]);
+  const { tributes } = useTributes();
   const { isSignedIn } = useUser();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Debounce search input to limit re-filtering
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Load tributes client side only
-  useEffect(() => {
-    if (typeof window === 'undefined') return; // Avoid SSR
+  // Sort tributes by deathDate descending (latest first)
+  const sortedTributes = useMemo(() => {
+    return [...tributes].sort((a, b) => (b.deathDate || '').localeCompare(a.deathDate || ''));
+  }, [tributes]);
 
-    const loaded = getTributes();
-    // Sort tributes by deathDate descending (newest first)
-    loaded.sort((a, b) => (b.deathDate || '').localeCompare(a.deathDate || ''));
-    setTributes(loaded);
-  }, []);
-
+  // Filter tributes by search term
   const filteredTributes = useMemo(() => {
-    if (!debouncedSearch) return tributes;
+    if (!debouncedSearch) return sortedTributes;
     const lower = debouncedSearch.toLowerCase();
-    return tributes.filter(
+    return sortedTributes.filter(
       (t) =>
         t.name.toLowerCase().includes(lower) ||
         (t.tags?.some((tag) => tag.toLowerCase().includes(lower)) ?? false)
     );
-  }, [debouncedSearch, tributes]);
+  }, [debouncedSearch, sortedTributes]);
 
   return (
     <main className="max-w-4xl mx-auto p-6">
@@ -80,22 +67,22 @@ export default function TributeListPage() {
           + Create New Tribute
         </Link>
       ) : (
-        <>
-          <p className="mb-4 text-gray-700">
-            You can browse public tributes below.{' '}
-            <Link
-              href="/sign-in?redirect_url=/tribute/create"
-              className="text-[#1D3557] underline hover:text-[#F4A261]"
-            >
-              Sign in
-            </Link>{' '}
-            to create and manage your own.
-          </p>
-        </>
+        <p className="mb-4 text-gray-700">
+          You can browse public tributes below.{' '}
+          <Link
+            href="/sign-in?redirect_url=/tribute/create"
+            className="text-[#1D3557] underline hover:text-[#F4A261]"
+          >
+            Sign in
+          </Link>{' '}
+          to create and manage your own.
+        </p>
       )}
 
-      {filteredTributes.length === 0 ? (
+      {tributes.length === 0 ? (
         <p className="text-gray-500">No tributes found.</p>
+      ) : filteredTributes.length === 0 ? (
+        <p className="text-gray-500">No tributes match your search.</p>
       ) : (
         <ul className="space-y-4">
           {filteredTributes.map((t) => (
@@ -108,9 +95,9 @@ export default function TributeListPage() {
                 href={`/tribute/${t.id}`}
                 className="flex-grow flex items-center gap-4 focus:outline-none focus:ring-2 focus:ring-[#1D3557] rounded"
               >
-                {t.imageUrl ? (
+                {t.photoUrl ? (
                   <img
-                    src={t.imageUrl}
+                    src={t.photoUrl}
                     alt={`Photo of ${t.name}`}
                     className="h-16 w-16 rounded object-cover flex-shrink-0"
                   />
@@ -128,7 +115,7 @@ export default function TributeListPage() {
               </Link>
               {isSignedIn && (
                 <Link
-                  href={`/tribute/edit/${t.id}`}
+                  href={`/tribute/${t.id}/edit`}
                   className="text-sm text-[#1D3557] underline hover:text-[#F4A261]"
                 >
                   Edit

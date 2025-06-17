@@ -1,82 +1,64 @@
-// File: app/tribute/[id]/edit/page.tsx
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/authContext";
-import { Tribute } from "../../page";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs'; // switched from useAuth for consistency
+import { Tribute } from '@/types/tribute';
+import TributeForm from '@/components/TributeForm';
+import { useTributes } from '@/lib/hooks/useTributes';
 
 export default function EditTributePage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isSignedIn } = useUser();
+  const { tributes, addTribute } = useTributes();
+  const [tribute, setTribute] = useState<Tribute | null>(null);
 
-  const [form, setForm] = useState<Tribute | null>(null);
-
+  // Load tribute on mount or when tributes/user/id change
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("tributes") || "[]");
-    const tribute = stored.find((t: Tribute) => t.id === id);
-    if (!tribute || tribute.creatorId !== user?.id) {
-      router.push("/tribute");
-    } else {
-      setForm(tribute);
+    if (!isSignedIn) {
+      router.push('/sign-in?redirect_url=/tribute');
+      return;
     }
-  }, [id]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const stored = JSON.parse(localStorage.getItem("tributes") || "[]");
-    const updated = stored.map((t: Tribute) =>
-      t.id === id ? form : t
+    if (!id || !user) {
+      router.push('/tribute');
+      return;
+    }
+
+    const found = tributes.find((t) => t.id === id);
+
+    if (!found || found.createdBy !== user.id) {
+      router.push('/tribute');
+    } else {
+      setTribute(found);
+    }
+  }, [id, tributes, user, isSignedIn, router]);
+
+  const handleUpdate = (updatedTribute: Tribute) => {
+    // Update tributes list by replacing the tribute with matching id
+    const updatedList = tributes.map((t) =>
+      t.id === updatedTribute.id ? updatedTribute : t
     );
-    localStorage.setItem("tributes", JSON.stringify(updated));
-    router.push(`/tribute/${id}`);
-  }
 
-  if (!form) return null;
+    // Save updated list to localStorage
+    localStorage.setItem('tributes', JSON.stringify(updatedList));
+
+    // (Optional) Could add a method to your hook for updating tributes to keep in sync
+
+    router.push(`/tribute/${updatedTribute.id}`);
+  };
+
+  if (!tribute) return null;
 
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4">
-      <h1 className="text-2xl font-bold text-[#1D3557] mb-6">Edit Tribute</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          required
-          type="text"
-          placeholder="Full Name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="w-full border px-4 py-2 rounded"
-        />
-        <div className="flex gap-4">
-          <input
-            type="date"
-            required
-            value={form.birthDate}
-            onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-            className="w-full border px-4 py-2 rounded"
-          />
-          <input
-            type="date"
-            required
-            value={form.deathDate}
-            onChange={(e) => setForm({ ...form, deathDate: e.target.value })}
-            className="w-full border px-4 py-2 rounded"
-          />
-        </div>
-        <textarea
-          required
-          placeholder="Obituary..."
-          value={form.obituary}
-          onChange={(e) => setForm({ ...form, obituary: e.target.value })}
-          className="w-full border px-4 py-2 h-40 rounded"
-        />
-        <button
-          type="submit"
-          className="bg-[#1D3557] text-white px-6 py-2 rounded hover:bg-[#F4A261] hover:text-[#1D3557]"
-        >
-          Update Tribute
-        </button>
-      </form>
-    </div>
+    <main className="max-w-2xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6 text-[#1D3557]">Edit Tribute</h1>
+      <TributeForm
+        initialData={tribute}
+        onSubmit={handleUpdate}
+        submitLabel="Update Tribute"
+      />
+    </main>
   );
 }
