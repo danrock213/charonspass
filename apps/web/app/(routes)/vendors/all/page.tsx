@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { vendors } from '@/data/vendors';
-import VendorCard from '@/components/VendorCard';
-import { getDistanceFromLatLonInKm } from '@/utils/distance';
+import VendorCard from '@/components/vendor/VendorCard';
+import { getDistanceFromLatLonInKm } from '@/lib/distance';
 
 export default function AllVendorsPage() {
   const [city, setCity] = useState('');

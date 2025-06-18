@@ -33,6 +33,7 @@ export interface Vendor {
   imageUrl?: string;
   images?: string[];
   description?: string;
+  reviews?: Review[]; // ✅ Added this line
 }
 
 export const vendorCategories: VendorCategory[] = [

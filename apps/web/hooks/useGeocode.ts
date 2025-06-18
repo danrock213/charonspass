@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { geocodeWithCache } from '../utils/geocode';
+import { geocodeWithCache } from '../lib/geocode';
 
 export function useGeocode(location: string | null) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);

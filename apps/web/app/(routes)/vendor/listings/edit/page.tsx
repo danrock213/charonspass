@@ -1,11 +1,17 @@
-// app/vendor/listings/edit/page.tsx
-
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-const initialState = {
+type VendorForm = {
+  title: string;
+  category: string;
+  location: string;
+  description: string;
+  active: boolean;
+};
+
+const initialState: VendorForm = {
   title: '',
   category: '',
   location: '',
@@ -28,13 +34,13 @@ const categoryOptions = [
 export default function EditVendorListingPage() {
   const params = useSearchParams();
   const router = useRouter();
-  const [form, setForm] = useState(initialState);
+  const [form, setForm] = useState<VendorForm>(initialState);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    const id = params.get('id');
+    const id = params?.get('id');
     if (id) {
-      // Simulate loading existing listing
+      // Simulate loading existing listing data
       setForm({
         title: 'Elegant Catering',
         category: 'Catering',
@@ -46,12 +52,25 @@ export default function EditVendorListingPage() {
     }
   }, [params]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, type } = e.target;
+
+    // For checkboxes, we need to cast e.target to HTMLInputElement to access checked safely
+    if (type === 'checkbox') {
+      const target = e.target as HTMLInputElement;
+      setForm((prev) => ({
+        ...prev,
+        [name]: target.checked,
+      }));
+    } else {
+      const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      setForm((prev) => ({
+        ...prev,
+        [name]: target.value,
+      }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -88,7 +107,9 @@ export default function EditVendorListingPage() {
           >
             <option value="">Select category</option>
             {categoryOptions.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
         </div>

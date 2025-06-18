@@ -1,16 +1,16 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Vendor } from '@/data/vendors';
+import { Vendor } from '@/types/vendor';
 import { calculateAverageRating } from '@/lib/vendorUtils';
-import StarRatingDisplay from './StarRatingDisplay';
+import StarRatingDisplay from '@/components/StarRatingDisplay';
 
 interface Props {
   vendor: Vendor;
 }
 
 export default function VendorCard({ vendor }: Props) {
-  const avg = vendor.reviews ? calculateAverageRating(vendor.reviews) : null;
+  const avg = vendor.reviews?.length ? calculateAverageRating(vendor.reviews) : null;
 
   return (
     <Link
@@ -34,7 +34,7 @@ export default function VendorCard({ vendor }: Props) {
         {avg !== null && (
           <div className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
             <StarRatingDisplay rating={avg} size={14} />
-            <span>{avg.toFixed(1)} ({vendor.reviews.length})</span>
+            <span>{avg.toFixed(1)} ({vendor.reviews?.length ?? 0})</span>
           </div>
         )}
       </div>

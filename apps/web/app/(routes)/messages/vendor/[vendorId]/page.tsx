@@ -31,8 +31,10 @@ function saveConversations(conversations: Conversation[]) {
 }
 
 export default function ConversationPage() {
-  const { vendorId } = useParams();
+  const params = useParams();
+  const vendorId = typeof params?.vendorId === 'string' ? params.vendorId : params?.vendorId?.[0] ?? '';
   const router = useRouter();
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [input, setInput] = useState('');
@@ -54,7 +56,6 @@ export default function ConversationPage() {
   }, [vendorId]);
 
   useEffect(() => {
-    // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
@@ -87,7 +88,6 @@ export default function ConversationPage() {
       messages: [...conversation.messages, newMessage],
     };
 
-    // Update conversations array
     const updatedConversations = conversations.map((c) =>
       c.vendorId === vendorId ? updatedConversation : c
     );

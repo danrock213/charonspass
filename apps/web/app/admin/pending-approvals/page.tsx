@@ -1,62 +1,142 @@
-'use client';
+import { openai } from "@ai-sdk/openai";
+import { Ratelimit } from "@upstash/ratelimit";
+import { kv } from "@vercel/kv";
+import { streamText } from "ai";
+import { match } from "ts-pattern";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/authContext';
-import { vendors } from '@/data/vendors';
+// IMPORTANT! Set the runtime to edge: https://vercel.com/docs/functions/edge-functions/edge-runtime
+export const runtime = "edge";
 
-export default function PendingApprovalsPage() {
-  const { user } = useAuth();
-  const router = useRouter();
-
-  // Redirect if not logged in or not an admin
-  useEffect(() => {
-    if (!user) {
-      router.replace('/user-auth');
-    } else if (user.role !== 'admin') {
-      alert('Access denied: Admins only.');
-      router.replace('/');
+export async function POST(req: Request): Promise<Response> {
+  try {
+    // Check for OpenAI API key presence
+    if (!process.env.OPENAI_API_KEY) {
+      return new Response("Missing OPENAI_API_KEY - add it to your .env file.", { status: 400 });
     }
-  }, [user, router]);
 
-  const pendingVendors = vendors.filter((v) => !v.approved);
+    // Parse request body once
+    const body = await req.json() as {
+      prompt: string;
+      option: string;
+      command?: string;
+    };
 
-  const handleApprove = (vendorId: string) => {
-    // Simulate backend call
-    console.log(`Approved vendor with ID: ${vendorId}`);
-    // In a real app, you’d update vendor.approved in your backend/db
-  };
+    // Rate limiting if KV environment variables are present
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const ip = req.headers.get("x-forwarded-for") || "unknown_ip";
+      const ratelimit = new Ratelimit({
+        redis: kv,
+        limiter: Ratelimit.slidingWindow(50, "1 d"),
+      });
 
-  if (!user || user.role !== 'admin') {
-    return null; // Prevent flicker before redirect
+      const { success, limit, reset, remaining } = await ratelimit.limit(`novel_ratelimit_${ip}`);
+
+      if (!success) {
+        return new Response("You have reached your request limit for the day.", {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": limit.toString(),
+            "X-RateLimit-Remaining": remaining.toString(),
+            "X-RateLimit-Reset": reset.toString(),
+          },
+        });
+      }
+    }
+
+    const { prompt, option, command } = body;
+
+    const messages = match(option)
+      .with("continue", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that continues existing text based on context from prior text. " +
+            "Give more weight/priority to the later characters than the beginning ones. " +
+            "Limit your response to no more than 200 characters, but make sure to construct complete sentences." +
+            "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ])
+      .with("improve", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that improves existing text. " +
+            "Limit your response to no more than 200 characters, but make sure to construct complete sentences." +
+            "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: `The existing text is: ${prompt}`,
+        },
+      ])
+      .with("shorter", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that shortens existing text. " + "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: `The existing text is: ${prompt}`,
+        },
+      ])
+      .with("longer", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that lengthens existing text. " +
+            "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: `The existing text is: ${prompt}`,
+        },
+      ])
+      .with("fix", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that fixes grammar and spelling errors in existing text. " +
+            "Limit your response to no more than 200 characters, but make sure to construct complete sentences." +
+            "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: `The existing text is: ${prompt}`,
+        },
+      ])
+      .with("zap", () => [
+        {
+          role: "system",
+          content:
+            "You are an AI writing assistant that generates text based on a prompt. " +
+            "You take an input from the user and a command for manipulating the text. " +
+            "Use Markdown formatting when appropriate.",
+        },
+        {
+          role: "user",
+          content: `For this text: ${prompt}. You have to respect the command: ${command}`,
+        },
+      ])
+      .run();
+
+    const result = await streamText({
+      prompt: messages[messages.length - 1].content,
+      maxTokens: 4096,
+      temperature: 0.7,
+      topP: 1,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+      model: openai("gpt-4o-mini"),
+    });
+
+    return result.toDataStreamResponse();
+  } catch (error) {
+    console.error("Error in POST handler:", error);
+    return new Response("Internal Server Error", { status: 500 });
   }
-
-  return (
-    <main className="max-w-5xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-[#1D3557] mb-4">Pending Vendor Approvals</h1>
-      {pendingVendors.length === 0 ? (
-        <p className="text-gray-600">No vendors pending approval.</p>
-      ) : (
-        <ul className="space-y-4">
-          {pendingVendors.map((vendor) => (
-            <li
-              key={vendor.id}
-              className="border rounded p-4 flex justify-between items-center"
-            >
-              <div>
-                <p className="text-lg font-semibold text-[#1D3557]">{vendor.name}</p>
-                <p className="text-sm text-gray-600">{vendor.location}</p>
-              </div>
-              <button
-                onClick={() => handleApprove(vendor.id)}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-              >
-                Approve
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
-  );
 }

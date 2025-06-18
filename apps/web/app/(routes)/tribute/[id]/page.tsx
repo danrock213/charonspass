@@ -1,53 +1,75 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getTributeById, saveTribute, addRSVPToTribute } from '@/lib/data/tributes';
 import { Tribute } from '@/types/tribute';
 
 export default function TributeDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  // Ensure id is a string, fallback to empty string if not present
+  const id =
+    typeof params?.id === 'string'
+      ? params.id
+      : Array.isArray(params?.id)
+      ? params.id[0]
+      : '';
+
   const router = useRouter();
 
   const [tribute, setTribute] = useState<Tribute | null>(null);
-  const [notFound, setNotFound] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const [activeTab, setActiveTab] = useState<'tribute' | 'obituary' | 'details'>('tribute');
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  const [isEditing, setIsEditing] = useState(false);
   const [formState, setFormState] = useState<Partial<Tribute>>({});
+  const [activeTab, setActiveTab] = useState<'tribute' | 'obituary' | 'details'>('tribute');
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   const [rsvpName, setRsvpName] = useState('');
   const [attending, setAttending] = useState(true);
   const [rsvpError, setRsvpError] = useState('');
 
-  // Load tribute data by ID
-  const loadTribute = () => {
-    if (typeof id !== 'string') return;
+  // Use a ref to store tab buttons
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-    setLoading(true);
-    const found = getTributeById(id);
-    if (found) {
-      setTribute(found);
-      setFormState(found);
-      setNotFound(false);
-    } else {
-      setNotFound(true);
-    }
-    setLoading(false);
-  };
+  // Stable callback for ref assignment to avoid React warnings
+  const setTabRef = useCallback(
+    (tab: string) => (el: HTMLButtonElement | null) => {
+      tabRefs.current[tab] = el;
+    },
+    []
+  );
 
   useEffect(() => {
-    loadTribute();
+    if (!id) return;
+
+    async function fetchTribute() {
+      setLoading(true);
+      try {
+        const found = await getTributeById(id);
+        if (found) {
+          setTribute(found);
+          setFormState(found);
+          setNotFound(false);
+        } else {
+          setNotFound(true);
+        }
+      } catch {
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTribute();
   }, [id]);
 
-  // Handle form input changes for editing
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type, checked } = e.target;
-    if (name === 'rsvpEnabled') {
-      // Special handling for RSVP checkbox inside funeralDetails
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
+
+    if (name === 'rsvpEnabled' && type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
       setFormState((prev) => ({
         ...prev,
         funeralDetails: {
@@ -56,56 +78,78 @@ export default function TributeDetailPage() {
         },
       }));
     } else {
-      setFormState((prev) => ({ ...prev, [name]: value }));
+      setFormState((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
   };
 
-  // Save edits
   const handleSave = () => {
-    if (!formState.name || formState.name.trim() === '') {
-      alert('Name is required.');
-      return;
-    }
-    if (!tribute) return;
+    if (!formState.name || formState.name.trim() === '' || !tribute) return;
 
-    const updatedTribute: Tribute = {
+    const updated: Tribute = {
       ...tribute,
       ...formState,
       birthDate: formState.birthDate || '',
       deathDate: formState.deathDate || '',
       obituaryText: formState.obituaryText || '',
-      funeralDetails: formState.funeralDetails || tribute.funeralDetails || {
-        rsvpEnabled: false,
-        rsvpList: [],
-      },
+      funeralDetails:
+        formState.funeralDetails || tribute.funeralDetails || {
+          rsvpEnabled: false,
+          rsvpList: [],
+        },
     };
 
-    saveTribute(updatedTribute);
-    setTribute(updatedTribute);
+    saveTribute(updated);
+    setTribute(updated);
     setIsEditing(false);
   };
 
-  // Cancel editing and revert form state
   const handleCancel = () => {
-    if (tribute) setFormState(tribute);
-    setIsEditing(false);
+    if (tribute) {
+      setFormState(tribute);
+      setIsEditing(false);
+    }
   };
 
-  // Handle RSVP submission
-  const handleRSVP = () => {
+  const handleRSVP = async () => {
     setRsvpError('');
     if (!rsvpName.trim()) {
       setRsvpError('Please enter your name before submitting.');
       return;
     }
+
     if (!id) return;
 
-    addRSVPToTribute(id, rsvpName.trim(), attending);
-    setRsvpName('');
-    loadTribute();
+    try {
+      await addRSVPToTribute(id, rsvpName.trim(), attending);
+      setRsvpName('');
+      // Refresh tribute data after RSVP
+      const found = await getTributeById(id);
+      if (found) setTribute(found);
+    } catch {
+      setRsvpError('Failed to submit RSVP. Please try again.');
+    }
   };
 
-  // Format dates nicely
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const tabs = ['tribute', 'obituary', 'details'];
+    const index = tabs.indexOf(activeTab);
+    let nextIndex = index;
+
+    if (e.key === 'ArrowRight') {
+      nextIndex = (index + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIndex = (index - 1 + tabs.length) % tabs.length;
+    }
+
+    if (nextIndex !== index) {
+      setActiveTab(tabs[nextIndex] as typeof activeTab);
+      tabRefs.current[tabs[nextIndex]]?.focus();
+    }
+  };
+
   const formatDate = (dateStr?: string) =>
     dateStr
       ? new Date(dateStr).toLocaleDateString('en-US', {
@@ -115,41 +159,20 @@ export default function TributeDetailPage() {
         })
       : 'Unknown';
 
-  // Keyboard navigation for tabs (optional)
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const tabs = ['tribute', 'obituary', 'details'];
-    const currentIndex = tabs.indexOf(activeTab);
-    if (e.key === 'ArrowRight') {
-      const nextIndex = (currentIndex + 1) % tabs.length;
-      setActiveTab(tabs[nextIndex] as typeof activeTab);
-      tabRefs.current[tabs[nextIndex]]?.focus();
-    } else if (e.key === 'ArrowLeft') {
-      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-      setActiveTab(tabs[prevIndex] as typeof activeTab);
-      tabRefs.current[tabs[prevIndex]]?.focus();
-    }
-  };
-
-  if (loading) {
+  if (loading)
     return (
-      <main
-        className="max-w-4xl mx-auto mt-20 text-center text-gray-500"
-        role="status"
-        aria-live="polite"
-      >
-        <p>Loading tribute...</p>
+      <main className="max-w-4xl mx-auto mt-20 text-center text-gray-500">
+        Loading tribute...
       </main>
     );
-  }
 
   if (notFound || !tribute) {
     return (
-      <main className="max-w-4xl mx-auto mt-20 text-center text-gray-500" role="alert">
+      <main className="max-w-4xl mx-auto mt-20 text-center text-gray-500">
         <p>Tribute not found.</p>
         <button
           onClick={() => router.push('/tribute')}
           className="mt-4 px-4 py-2 border rounded text-[#1D3557] hover:bg-gray-100"
-          aria-label="Back to tribute list"
         >
           Back to Tributes
         </button>
@@ -165,7 +188,6 @@ export default function TributeDetailPage() {
           <button
             onClick={() => setIsEditing(true)}
             className="px-3 py-1 border border-[#1D3557] rounded hover:bg-[#F4A261] hover:text-white transition"
-            aria-label="Edit tribute"
           >
             Edit
           </button>
@@ -173,20 +195,18 @@ export default function TributeDetailPage() {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={!formState.name || formState.name.trim() === ''}
+              disabled={!formState.name?.trim()}
               className={`px-3 py-1 rounded transition ${
-                !formState.name || formState.name.trim() === ''
+                !formState.name?.trim()
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-[#1D3557] text-white hover:bg-[#457B9D]'
               }`}
-              aria-label="Save tribute changes"
             >
               Save
             </button>
             <button
               onClick={handleCancel}
               className="px-3 py-1 border border-gray-400 rounded hover:bg-gray-100"
-              aria-label="Cancel editing"
             >
               Cancel
             </button>
@@ -194,17 +214,16 @@ export default function TributeDetailPage() {
         )}
       </div>
 
-      {/* Tabs */}
       <nav
         className="mb-6 flex gap-4 border-b border-gray-300"
         role="tablist"
-        aria-label="Tribute detail sections"
+        aria-label="Tribute Tabs"
         onKeyDown={handleKeyDown}
       >
         {['tribute', 'obituary', 'details'].map((tab) => (
           <button
             key={tab}
-            ref={(el) => (tabRefs.current[tab] = el)}
+            ref={setTabRef(tab)}
             role="tab"
             aria-selected={activeTab === tab}
             tabIndex={activeTab === tab ? 0 : -1}
@@ -220,41 +239,38 @@ export default function TributeDetailPage() {
         ))}
       </nav>
 
-      {/* Tab content */}
+      {/* TABS */}
       {activeTab === 'tribute' && (
-        <section role="tabpanel" tabIndex={0} aria-labelledby="tribute-tab">
+        <section>
           {isEditing ? (
             <div className="flex flex-col gap-4 max-w-lg">
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Name *</span>
+              <label>
+                <span>Name *</span>
                 <input
-                  type="text"
                   name="name"
                   value={formState.name || ''}
                   onChange={handleChange}
-                  className="mt-1 block w-full border rounded px-3 py-2"
-                  required
-                  aria-required="true"
+                  className="w-full border rounded px-3 py-2"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Birth Date</span>
+              <label>
+                <span>Birth Date</span>
                 <input
                   type="date"
                   name="birthDate"
                   value={formState.birthDate || ''}
                   onChange={handleChange}
-                  className="mt-1 block w-full border rounded px-3 py-2"
+                  className="w-full border rounded px-3 py-2"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Death Date</span>
+              <label>
+                <span>Death Date</span>
                 <input
                   type="date"
                   name="deathDate"
                   value={formState.deathDate || ''}
                   onChange={handleChange}
-                  className="mt-1 block w-full border rounded px-3 py-2"
+                  className="w-full border rounded px-3 py-2"
                 />
               </label>
             </div>
@@ -272,7 +288,7 @@ export default function TributeDetailPage() {
       )}
 
       {activeTab === 'obituary' && (
-        <section role="tabpanel" tabIndex={0} aria-labelledby="obituary-tab">
+        <section>
           {isEditing ? (
             <textarea
               name="obituaryText"
@@ -280,8 +296,6 @@ export default function TributeDetailPage() {
               onChange={handleChange}
               rows={8}
               className="w-full border rounded p-3"
-              placeholder="Write the obituary here..."
-              aria-label="Obituary text"
             />
           ) : (
             <p className="whitespace-pre-wrap text-gray-700">
@@ -292,21 +306,17 @@ export default function TributeDetailPage() {
       )}
 
       {activeTab === 'details' && (
-        <section role="tabpanel" tabIndex={0} aria-labelledby="details-tab">
+        <section>
           {isEditing ? (
-            <div className="max-w-lg flex flex-col gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="rsvpEnabled"
-                  checked={!!formState.funeralDetails?.rsvpEnabled}
-                  onChange={handleChange}
-                  aria-checked={!!formState.funeralDetails?.rsvpEnabled}
-                  aria-label="Enable RSVP"
-                />
-                <span>Enable RSVP</span>
-              </label>
-            </div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="rsvpEnabled"
+                checked={!!formState.funeralDetails?.rsvpEnabled}
+                onChange={handleChange}
+              />
+              <span>Enable RSVP</span>
+            </label>
           ) : (
             <p>
               RSVP Enabled:{' '}
@@ -320,59 +330,49 @@ export default function TributeDetailPage() {
 
           {tribute.funeralDetails?.rsvpEnabled && (
             <>
-              <div className="mt-6 border-t pt-4">
+              <div className="mt-6">
                 <h3 className="text-lg font-semibold text-[#1D3557] mb-2">RSVP</h3>
-                <p className="mb-2 text-sm text-gray-500">
-                  Let us know if you're planning to attend.
-                </p>
-                <div className="flex gap-2 items-center mb-2 max-w-md">
-                  <input
-                    type="text"
-                    value={rsvpName}
-                    onChange={(e) => setRsvpName(e.target.value)}
-                    placeholder="Your name"
-                    className="border p-2 rounded flex-grow"
-                    aria-label="Your name"
-                  />
-                  <select
-                    value={attending ? 'yes' : 'no'}
-                    onChange={(e) => setAttending(e.target.value === 'yes')}
-                    className="border p-2 rounded"
-                    aria-label="RSVP attendance"
-                  >
-                    <option value="yes">Attending</option>
-                    <option value="no">Not Attending</option>
-                  </select>
-                  <button
-                    onClick={handleRSVP}
-                    className="px-4 py-2 bg-[#1D3557] text-white rounded hover:bg-[#457B9D]"
-                    disabled={!rsvpName.trim()}
-                    aria-disabled={!rsvpName.trim()}
-                  >
-                    Submit
-                  </button>
-                </div>
-                {rsvpError && (
-                  <p className="text-red-600 text-sm mt-1" role="alert">
-                    {rsvpError}
-                  </p>
-                )}
+                <input
+                  type="text"
+                  value={rsvpName}
+                  onChange={(e) => {
+                    setRsvpName(e.target.value);
+                    if (rsvpError) setRsvpError('');
+                  }}
+                  placeholder="Your name"
+                  className="border p-2 rounded mr-2"
+                />
+                <select
+                  value={attending ? 'yes' : 'no'}
+                  onChange={(e) => setAttending(e.target.value === 'yes')}
+                  className="border p-2 rounded mr-2"
+                >
+                  <option value="yes">Attending</option>
+                  <option value="no">Not Attending</option>
+                </select>
+                <button
+                  onClick={handleRSVP}
+                  disabled={!rsvpName.trim()}
+                  className="px-4 py-2 bg-[#1D3557] text-white rounded hover:bg-[#457B9D]"
+                >
+                  Submit
+                </button>
+                {rsvpError && <p className="text-red-600 text-sm mt-1">{rsvpError}</p>}
               </div>
 
-              {tribute.funeralDetails?.rsvpList?.length ? (
-                <div className="mt-6 max-w-md">
-                  <h4 className="font-medium text-[#1D3557] mb-2">RSVP Responses</h4>
-                  <ul className="list-disc pl-6 text-sm text-gray-700">
-                    {tribute.funeralDetails.rsvpList.map((rsvp, idx) => (
+              <div className="mt-4">
+                {tribute.funeralDetails.rsvpList?.length ? (
+                  <ul className="list-disc pl-6">
+                    {tribute.funeralDetails.rsvpList.map((r, idx) => (
                       <li key={idx}>
-                        {rsvp.name} — {rsvp.attending ? 'Attending' : 'Not Attending'}
+                        {r.name} — {r.attending ? 'Attending' : 'Not Attending'}
                       </li>
                     ))}
                   </ul>
-                </div>
-              ) : (
-                <p className="mt-4 text-gray-500">No RSVPs yet.</p>
-              )}
+                ) : (
+                  <p className="text-gray-500">No RSVPs yet.</p>
+                )}
+              </div>
             </>
           )}
         </section>
@@ -381,7 +381,6 @@ export default function TributeDetailPage() {
       <button
         onClick={() => router.push('/tribute')}
         className="mt-10 px-4 py-2 border border-[#1D3557] rounded text-[#1D3557] hover:bg-[#F4A261] hover:text-white transition"
-        aria-label="Back to tribute list"
       >
         ← Back to Tribute List
       </button>

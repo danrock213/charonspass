@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { Vendor } from '@/types/vendor';
 import { VendorProfile } from '@/types/vendor';
+
 
 interface Props {
   vendorId: string;
@@ -66,7 +68,7 @@ export default function VendorProfileForm({ vendorId, initialProfile, onSave }: 
     }
 
     const profile: VendorProfile = {
-      id: vendorId,
+      vendorId,
       businessName,
       description,
       email,

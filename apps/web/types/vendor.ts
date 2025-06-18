@@ -1,25 +1,8 @@
-// types/vendor.ts
-
 export interface VendorCategory {
   id: string;
   name: string;
   imageUrl: string;
   description: string;
-}
-
-export interface Vendor {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  lat?: number;
-  lng?: number;
-  phone?: string;
-  website?: string;
-  imageUrl?: string;
-  images?: string[]; // optional array of images for the detail page
-  description?: string;
-  email?: string;
 }
 
 export interface Review {
@@ -30,9 +13,45 @@ export interface Review {
   date: string;
 }
 
-export interface Message {
+export interface Vendor {
   id: string;
-  sender: string;
-  content: string;
-  date: string;
+  name: string;
+  category: string; // category ID
+  location: string;
+  lat?: number;
+  lng?: number;
+  phone?: string;
+  website?: string;
+  email?: string;
+  imageUrl?: string;
+  images?: (string | File)[];
+  description?: string;
+  hours?: string;
+  services?: string[];
+  social?: {
+    facebook?: string;
+    instagram?: string;
+    [key: string]: string | undefined;
+  };
+  approved?: boolean;
+  updatedAt?: string;
+  reviews?: Review[]; // ✅ <-- Add this line
+}
+
+export interface VendorProfile {
+  vendorId: string;
+  businessName?: string;
+  description?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  website?: string;
+  categories?: string[];
+  logoUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  bio?: string;
+  services?: string[];
+  availability?: string;
+  gallery?: string[];
 }

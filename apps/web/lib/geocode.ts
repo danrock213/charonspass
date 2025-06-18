@@ -1,12 +1,14 @@
-// @/lib/geocode.ts
-
-export async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
+export async function geocodeCity(
+  city: string
+): Promise<{ lat: number; lng: number } | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+      city
+    )}&format=json&limit=1`;
 
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'PeacefulPassageApp/1.0 (admin@peacefulpassage.app)', // Replace with your contact info
+        "User-Agent": "StarlitPassageApp/1.0 (admin@starlitpassage.com)", // Customize for your app
       },
     });
 
@@ -16,10 +18,7 @@ export async function geocodeCity(city: string): Promise<{ lat: number; lng: num
     }
 
     const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      console.warn(`No results found for city: ${city}`);
-      return null;
-    }
+    if (!Array.isArray(data) || data.length === 0) return null;
 
     const { lat, lon } = data[0];
     return { lat: parseFloat(lat), lng: parseFloat(lon) };
@@ -28,3 +27,6 @@ export async function geocodeCity(city: string): Promise<{ lat: number; lng: num
     return null;
   }
 }
+
+// Fix: export this so it's usable elsewhere
+export const geocodeWithCache = geocodeCity;

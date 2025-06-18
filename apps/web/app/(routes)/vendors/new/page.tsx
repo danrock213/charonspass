@@ -24,13 +24,24 @@ export default function AddVendorPage() {
     setForm((f) => ({ ...f, location, lat, lng }));
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+) => {
+  const { name, value, type } = e.target;
+
+  if (type === 'checkbox') {
+    const target = e.target as HTMLInputElement; // Narrow type for checkbox
     setForm((f) => ({
       ...f,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: target.checked,
     }));
-  };
+  } else {
+    setForm((f) => ({
+      ...f,
+      [name]: value,
+    }));
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

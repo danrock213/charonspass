@@ -18,10 +18,18 @@ export default function TributeListPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
+  // Helper: convert photoBase64 to photoUrl (data URI)
+  const tributesWithPhotoUrl = useMemo(() => {
+    return tributes.map(t => ({
+      ...t,
+      photoUrl: t.photoBase64 ? `data:image/jpeg;base64,${t.photoBase64}` : undefined,
+    }));
+  }, [tributes]);
+
   // Sort tributes by deathDate descending (latest first)
   const sortedTributes = useMemo(() => {
-    return [...tributes].sort((a, b) => (b.deathDate || '').localeCompare(a.deathDate || ''));
-  }, [tributes]);
+    return [...tributesWithPhotoUrl].sort((a, b) => (b.deathDate || '').localeCompare(a.deathDate || ''));
+  }, [tributesWithPhotoUrl]);
 
   // Filter tributes by search term
   const filteredTributes = useMemo(() => {

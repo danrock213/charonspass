@@ -1,23 +1,23 @@
 {
-  "extends": "tsconfig/next.json",
   "compilerOptions": {
-    "jsx": "preserve",
-    "module": "esnext",
-    "target": "es6",
-    "moduleResolution": "node",
-    "strictNullChecks": true,
-    "esModuleInterop": true,
+    "target": "es2020",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    }
   },
   "include": [
     "next-env.d.ts",

@@ -5,15 +5,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import { vendors, vendorCategories } from '@/data/vendors';
-import VendorCard from '@/components/VendorCard'; // We'll simplify vendor card here or replace with inline markup
+import VendorCard from '@/components/vendor/VendorCard'; // OK to leave if it exists
 
 export default function VendorCategoryPage() {
-  const { category } = useParams();
+  const rawParams = useParams();
+  const categoryParam = rawParams?.category;
+  const category = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
 
   if (!category) return <p className="p-6">Category not found.</p>;
 
   const categoryInfo = vendorCategories.find((cat) => cat.id === category);
-
   const filteredVendors = vendors.filter((v) => v.category === category);
 
   return (

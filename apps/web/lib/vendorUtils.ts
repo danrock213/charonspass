@@ -1,5 +1,5 @@
-// @/lib/vendorUtils.ts
 import { vendorCategories } from '@/data/vendors';
+import type { Review } from '@/types/vendor';
 
 export function getCategoryLabel(id: string): string {
   const cat = vendorCategories.find((c) => c.id === id);

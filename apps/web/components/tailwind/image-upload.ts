@@ -1,4 +1,3 @@
-import { createImageUpload } from "novel";
 import { toast } from "sonner";
 
 const onUpload = (file: File) => {
@@ -11,23 +10,24 @@ const onUpload = (file: File) => {
     body: file,
   });
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string | File>((resolve, reject) => {
     toast.promise(
       promise.then(async (res) => {
-        // Successfully uploaded image
         if (res.status === 200) {
           const { url } = (await res.json()) as { url: string };
-          // preload the image
           const image = new Image();
           image.src = url;
           image.onload = () => {
             resolve(url);
           };
-          // No blob store configured
+          image.onerror = () => {
+            reject(new Error("Failed to preload image"));
+          };
         } else if (res.status === 401) {
           resolve(file);
-          throw new Error("`BLOB_READ_WRITE_TOKEN` environment variable not found, reading image locally instead.");
-          // Unknown error
+          throw new Error(
+            "`BLOB_READ_WRITE_TOKEN` env var missing, reading image locally."
+          );
         } else {
           throw new Error("Error uploading image. Please try again.");
         }
@@ -39,15 +39,15 @@ const onUpload = (file: File) => {
           reject(e);
           return e.message;
         },
-      },
+      }
     );
   });
 };
 
-export const uploadFn = createImageUpload({
+export const uploadFn = {
   onUpload,
-  validateFn: (file) => {
-    if (!file.type.includes("image/")) {
+  validateFn: (file: File) => {
+    if (!file.type.startsWith("image/")) {
       toast.error("File type not supported.");
       return false;
     }
@@ -57,4 +57,4 @@ export const uploadFn = createImageUpload({
     }
     return true;
   },
-});
+};

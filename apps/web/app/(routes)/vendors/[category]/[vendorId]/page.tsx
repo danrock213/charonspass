@@ -9,8 +9,9 @@ import { getCategoryLabel } from '@/lib/vendorUtils';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import StarRatingInput from '@/components/StarRatingInput';
 import StarRatingDisplay from '@/components/StarRatingDisplay';
+import type { Review } from '@/types/vendor';
+import type { Message } from '@/types/message';
 
-import type { Review, Message } from '@/types/vendor';
 
 export default function VendorDetailPage() {
   const { category, vendorId } = useParams() as { category: string; vendorId: string };
@@ -145,22 +146,12 @@ export default function VendorDetailPage() {
               key={idx}
               className="relative w-64 h-40 flex-shrink-0 rounded overflow-hidden shadow"
             >
-              <Image
-                src={img}
-                alt={`${vendor.name} image ${idx + 1}`}
-                fill
-                className="object-cover"
-              />
+              <Image src={img} alt={`${vendor.name} image ${idx + 1}`} fill className="object-cover" />
             </div>
           ))
         ) : vendor.imageUrl ? (
           <div className="relative w-64 h-40 rounded overflow-hidden shadow">
-            <Image
-              src={vendor.imageUrl}
-              alt={`${vendor.name}`}
-              fill
-              className="object-cover"
-            />
+            <Image src={vendor.imageUrl} alt={`${vendor.name}`} fill className="object-cover" />
           </div>
         ) : (
           <p className="text-gray-500">No image available</p>
@@ -192,12 +183,7 @@ export default function VendorDetailPage() {
         {vendor.website && (
           <p>
             <strong>Website:</strong>{' '}
-            <a
-              href={vendor.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline"
-            >
+            <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
               {vendor.website}
             </a>
           </p>
@@ -228,17 +214,11 @@ export default function VendorDetailPage() {
                 <h3 className="text-lg font-semibold mb-2">Your Recent Messages</h3>
                 <ul className="space-y-2">
                   {recentUserMessages.map((msg) => (
-                    <li
-                      key={msg.id}
-                      className="border p-2 rounded bg-white text-sm text-gray-700"
-                    >
+                    <li key={msg.id} className="border p-2 rounded bg-white text-sm text-gray-700">
                       <p className="whitespace-pre-line">{msg.content}</p>
                       <p className="text-gray-400 text-xs mt-1">
                         {new Date(msg.date).toLocaleDateString()} at{' '}
-                        {new Date(msg.date).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(msg.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </li>
                   ))}

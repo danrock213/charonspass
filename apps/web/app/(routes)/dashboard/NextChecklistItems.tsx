@@ -2,13 +2,12 @@
 
 import { ChecklistItem } from '@/types/dashboard';
 
-export default function NextChecklistItems({
-  items,
-  onToggleCheck,
-}: {
+interface NextChecklistItemsProps {
   items: ChecklistItem[];
   onToggleCheck?: (id: string, checked: boolean) => void;
-}) {
+}
+
+export default function NextChecklistItems({ items, onToggleCheck }: NextChecklistItemsProps) {
   if (items.length === 0) {
     return <p className="text-gray-500">All checklist items completed! 🎉</p>;
   }
@@ -23,7 +22,7 @@ export default function NextChecklistItems({
               <input
                 type="checkbox"
                 checked={checked}
-                onChange={() => onToggleCheck && onToggleCheck(id, !checked)}
+                onChange={() => onToggleCheck?.(id, !checked)}
                 className="w-5 h-5"
               />
               <span className={checked ? 'line-through text-gray-400' : ''}>{title}</span>

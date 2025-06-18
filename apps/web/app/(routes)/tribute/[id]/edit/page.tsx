@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useUser } from '@clerk/nextjs'; // switched from useAuth for consistency
+import { useUser } from '@clerk/nextjs';
 import { Tribute } from '@/types/tribute';
-import TributeForm from '@/components/TributeForm';
-import { useTributes } from '@/lib/hooks/useTributes';
+import TributeForm from '@/components/tribute/TributeForm';
+import { useTributes } from '@/hooks/useTributes';
 
 export default function EditTributePage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '';
+
   const router = useRouter();
   const { user, isSignedIn } = useUser();
-  const { tributes, addTribute } = useTributes();
-  const [tribute, setTribute] = useState<Tribute | null>(null);
+  const { tributes } = useTributes();
 
-  // Load tribute on mount or when tributes/user/id change
+  const [tribute, setTribute] = useState<Tribute | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    if (!isSignedIn) {
-      router.push('/sign-in?redirect_url=/tribute');
-      return;
-    }
+    if (!isSignedIn) return; // Wait until signed-in state is known
 
     if (!id || !user) {
       router.push('/tribute');
@@ -33,23 +33,42 @@ export default function EditTributePage() {
     } else {
       setTribute(found);
     }
-  }, [id, tributes, user, isSignedIn, router]);
 
-  const handleUpdate = (updatedTribute: Tribute) => {
-    // Update tributes list by replacing the tribute with matching id
+    setLoading(false);
+  }, [id, tributes, user?.id, isSignedIn]);
+
+  // <-- Fix here: parameter now matches TributeForm's expected onSubmit type
+  const handleUpdate = (data: Omit<Tribute, 'id'>) => {
+    if (!tribute) return; // Safety check
+
+    const updatedTribute: Tribute = { id: tribute.id, ...data };
+
     const updatedList = tributes.map((t) =>
       t.id === updatedTribute.id ? updatedTribute : t
     );
 
-    // Save updated list to localStorage
-    localStorage.setItem('tributes', JSON.stringify(updatedList));
-
-    // (Optional) Could add a method to your hook for updating tributes to keep in sync
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tributes', JSON.stringify(updatedList));
+    }
 
     router.push(`/tribute/${updatedTribute.id}`);
   };
 
-  if (!tribute) return null;
+  if (loading) {
+    return (
+      <main className="max-w-2xl mx-auto p-6 text-center text-gray-500">
+        Loading tribute...
+      </main>
+    );
+  }
+
+  if (!tribute) {
+    return (
+      <main className="max-w-2xl mx-auto p-6 text-center text-red-600">
+        Tribute not found or access denied.
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-2xl mx-auto p-6">

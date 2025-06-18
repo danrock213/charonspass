@@ -11,6 +11,9 @@ export interface Vendor {
   name: string;
   type: string;
   booked: boolean;
+  story?: string;       // optional descriptive text
+  reviews?: string[];   // optional reviews
+  photoUrl?: string;    // optional image URL
 }
 
 export interface Event {

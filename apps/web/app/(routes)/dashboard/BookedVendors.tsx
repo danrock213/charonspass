@@ -2,18 +2,16 @@
 
 import { Vendor } from '@/types/dashboard';
 
-export default function BookedVendors({
-  vendors,
-  allVendorTypes,
-  onBookVendor,
-}: {
+interface BookedVendorsProps {
   vendors: Vendor[];
   allVendorTypes: string[];
   onBookVendor?: (type: string) => void;
-}) {
-  const booked = vendors.filter(v => v.booked);
-  const bookedTypes = new Set(booked.map(v => v.type));
-  const missingTypes = allVendorTypes.filter(type => !bookedTypes.has(type));
+}
+
+export default function BookedVendors({ vendors, allVendorTypes, onBookVendor }: BookedVendorsProps) {
+  const booked = vendors.filter((v) => v.booked);
+  const bookedTypes = new Set(booked.map((v) => v.type));
+  const missingTypes = allVendorTypes.filter((type) => !bookedTypes.has(type));
 
   return (
     <section className="mb-6">
@@ -37,7 +35,7 @@ export default function BookedVendors({
             {missingTypes.map((type) => (
               <li key={type}>
                 <button
-                  onClick={() => onBookVendor && onBookVendor(type)}
+                  onClick={() => onBookVendor?.(type)}
                   className="px-3 py-1 bg-[#1D3557] text-white rounded hover:bg-[#457B9D]"
                 >
                   Book {type}
